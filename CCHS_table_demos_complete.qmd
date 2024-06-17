@@ -1,0 +1,472 @@
+---
+title: "Introduction to table-making in R"
+author: "Therese Chan"
+date: 2024-06-24
+format: html
+editor: visual
+---
+
+## 📦 Loading packages
+
+If you don't have a package yet, install the package using a command similar to the following example command, putting the name of the package within the quotations: `install.packages("table1")`
+
+Here are the relevant packages we'll be using today:
+
+-   `tidyverse` - Contains multiple packages used for manipulating data
+
+    -   e.g., contains `readr` package for reading in files quicker than conventional read.csv(),
+
+    -   e.g., has `dplyr` package for common data manipulations
+
+    -   e.g., has `ggplot2` package for data visualizations
+
+-   `labelled` - For labelling variables
+
+-   `table1`, `tableone`, `gtsummary` - These are all packages used to create tables with descriptive statistics
+
+🚶‍♀️ Load the relevant packages:
+
+```{r load_packages}
+
+library(tidyverse) 
+library(labelled)  
+
+library(table1)  
+library(tableone) 
+library(gtsummary) 
+
+```
+
+## 💻 Reading in data
+
+There are many functions you can use to read in data, e.g., `read.csv()` or `readr::read_csv()`
+
+🚶‍♀️ Change the file path in the code chunk below to your file's location.
+
+```{r read_data}
+
+CCHS <- readr::read_csv(file = "C:/2013-2014 CCHS (PUMF)/cchs-82M0013-E-2013-2014-Annual-component_F1.csv", col_names = T, progress = T)
+
+#Can read in file using read.csv() command or readr::read_csv() command (example below)
+#CCHS=read.csv(file="C:/2013-2014 CCHS (PUMF)/cchs-82M0013-E-2013-2014-Annual-component_F1.csv", header=TRUE)
+```
+
+## 🧑‍🤝‍🧑 Creating a study cohort
+
+Example: Let's study risk factors in an older adult population (i.e., age 50+) that may be associated with an outcome of heart disease.
+
+We often want to account for inclusion/exclusion criteria within a project study.
+
+🚶‍♀️ Create a dataset CCHS_CUT that excludes: 1) individuals under the age of 50, and 2) individuals with missing heart disease status.
+
+-   💡 Hint: Individuals aged 50+ have categorical age (DHHGAGE) coded as 10 or higher
+-   💡 Hint: Heart disease is variable CCC_121
+
+```{r study_cohort_creation}
+
+CCHS_CUT <- CCHS %>% filter(DHHGAGE>=10 & CCC_121 %in% c(1,2))
+
+```
+
+See here for more information about dplyr package for data manipulations: <https://dplyr.tidyverse.org/>
+
+## 👩‍💻 Variable transformations and recodings
+
+🚶‍♀️ Create a new Diabetes variable where
+
+1.  we keep category 1 (denoting "Yes") to 1
+
+2.  We recode category 2 (denoting "No") to 0
+
+3.  We assign the multiple types of "missing" categories (e.g., Don't know, Refusal, Not stated) as NA.
+
+❗ Note: When dichotomous variables are coded as 1 (yes) & 2 (no), oftentimes functions (e.g., modelling) interpret the reference category as the lowest numbered category (i.e., 1), but in epidemiology, we normally prefer to have "no" (i.e., the hypothesized lower-risk category) as our reference group.
+
+```{r recode_diabetes}
+CCHS_CUT$Diabetes <- ifelse(CCHS_CUT$CCC_101 == 1, 1, 
+                           ifelse(CCHS_CUT$CCC_101 == 2, 0, 
+                                  NA))
+
+#Can check the categories by doing a quick table 
+table(CCHS_CUT$Diabetes)
+
+#Alternatively, using dplyr::recode()  
+# CCHS_CUT$Diabetes <- recode(CCHS_CUT$CCC_101, `1` = 1, `2` = 0, .default = NA_real_)
+# Note: In dplyr::recode(), NA_real_ is used to specify that the NA value should be of type numeric (or double). It helps keep the variable type consistent 
+
+
+```
+
+🚶‍♀️ Recode Heart disease variable to 1 (has heart disease) and 0 (no heart disease)
+
+```{r recode_heart}
+CCHS_CUT$Heart <- recode(CCHS_CUT$CCC_121, `1` = 1, `2` = 0, .default = NA_real_) 
+
+```
+
+🚶‍♀️ Create a new Daily Fruit Consumption variable where we assign NA to missing values, otherwise it'll throw off calculations of mean, etc.
+
+```{r _recode_fruit}
+CCHS_CUT$Fruit <- ifelse(CCHS_CUT$FVCDFRU == 999.9, NA, 
+                           CCHS_CUT$FVCDFRU)
+
+#Alternative using "base" R (i.e., no dplyr functions)
+# CCHS_CUT$Fruit <- CCHS_CUT$FVCDFRU
+# CCHS_CUT$Fruit[CCHS_CUT$Fruit == 9999] <- NA
+```
+
+## 🏷️ Factoring and assigning labels
+
+We must factor categorical variables (so that R knows it's not a continuous variable). We also assign labels to 1) individual categories of each variable 2) the variable itself before creating tables.
+
+🚶‍♀️ Factor the variable DHH_SEX and apply appropriate labels based on the data dictionary.
+
+```{r Factoring_Sex}
+
+
+CCHS_CUT$DHH_SEX = factor(CCHS_CUT$DHH_SEX, levels=c(1,2), 
+                        labels=c("Male", "Female"))
+
+```
+
+🚶‍♀️ Apply a label to the variable DHH_SEX
+
+```{r Labelling_Sex}
+
+var_label(CCHS_CUT$DHH_SEX) = "Sex"
+```
+
+🚶‍♀️ Factor and apply other labels below:
+
+```{r other_labels}
+
+CCHS_CUT$DHHGAGE = factor(CCHS_CUT$DHHGAGE, levels=c(10,11,12,13,14,15,16), 
+                          labels=c("50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80+"))
+var_label(CCHS_CUT$DHHGAGE) = "Age (Years)"
+
+
+CCHS_CUT$CCC_101 = factor(CCHS_CUT$CCC_101, levels=c(1,2,7,8,9), 
+                          labels=c("Yes", "No", "Don't know", "Refusal", "Not stated"))
+var_label(CCHS_CUT$CCC_101) = "Diabetes"
+
+
+CCHS_CUT$Diabetes = factor(CCHS_CUT$Diabetes, levels=c(0,1), 
+                          labels=c("No", "Yes"))
+var_label(CCHS_CUT$Diabetes) = "Diabetes"
+
+
+CCHS_CUT$Heart = factor(CCHS_CUT$Heart, levels=c(0,1), 
+                          labels=c("No heart disease", "Heart disease"))
+var_label(CCHS_CUT$Heart) = "Heart Disease"
+
+#Fruit is a continuous variable so we don't factor this variable! 
+var_label(CCHS_CUT$Fruit) = "Daily frequency of fruit consumption"
+
+
+```
+
+## 1️⃣ Table1 package
+
+👍 Pros:
+
+-   produces aesthetically pleasing table with little code needed
+
+-   great for beginners!
+
+👎 Cons:
+
+-   limited additional functionalities
+
+Link to helpful examples using the table1 package: <https://cran.r-project.org/web/packages/table1/vignettes/table1-examples.html>
+
+❗ Note: This package will automatically create a "Missing" category for variables with NA values.
+
+### Create unstratified table using table1
+
+🚶‍♀️ Make a table below showing the baseline characteristics of age, sex, diabetes, heart disease, and fruit consumption for the cohort
+
+```{r template}
+
+table1(~DHHGAGE + DHH_SEX + Diabetes + Heart + Fruit, data=CCHS_CUT)
+
+```
+
+### Create stratified table using table1
+
+🚶‍♀️ Make a table of the baseline characteristics stratified by sex.
+
+```{r template}
+
+
+table1(~DHHGAGE + Diabetes + Heart + Fruit | DHH_SEX, data=CCHS_CUT)
+
+```
+
+🚶‍♀️ Make a table stratified by the outcome (i.e., heart disease).
+
+```{r template}
+
+
+table1( ~ DHHGAGE + DHH_SEX + Diabetes + Fruit | Heart, data = CCHS_CUT)
+
+```
+
+💡 By default, `table1` will output an "Overall" column. If we don't want that overall column, we can add the `overall=FALSE` option.
+
+🚶‍♀️ Make a descriptive table with age, diabetes, and fruit, stratified by sex, but no overall column and now specifying median & IQR for continuous variables (hint: `render.continuous=c("Median [IQR]"="Median [Q1, Q3]")`) and also having these values be rounded to 2 significant digits (via `digits=2`)
+
+```{r table1_medians}
+
+table1(
+  ~ DHHGAGE + DHH_SEX + Diabetes + Fruit | Heart,
+  data = CCHS_CUT,
+  overall = FALSE,
+  render.continuous = c("Median [IQR]" = "Median [Q1, Q3]"),
+  digits = 2
+)
+
+```
+
+❗ Note: `table1` doesn't include its own function for computing p-values, so you have to make your own custom function to add a column that calculates p-values.
+
+🚶‍♀️ Run/load the function `pvalue()` below, which computes the p-value from t-tests or chi-square tests
+
+```{r table1_pvalue_func}
+#Source: Under section "Example: A column of p-values": https://cran.r-project.org/web/packages/table1/vignettes/table1-examples.html 
+pvalue <- function(x, ...) {
+  # Construct vectors of data y, and groups (strata) g
+  y <- unlist(x)
+  g <- factor(rep(1:length(x), times=sapply(x, length)))
+  if (is.numeric(y)) {
+    # For numeric variables, perform a standard 2-sample t-test
+    p <- t.test(y ~ g)$p.value
+  } else {
+    # For categorical variables, perform a chi-squared test of independence
+    p <- chisq.test(table(y, g))$p.value
+  }
+  # Format the p-value, using an HTML entity for the less-than sign.
+  # The initial empty string places the output on the line below the variable label.
+  c("", sub("<", "&lt;", format.pval(p, digits=3, eps=0.001)))
+}
+
+```
+
+🚶‍♀️ Generate the previous sex-stratified table, but now with p-values
+
+```{r table1_association}
+
+table1(
+  ~ DHHGAGE + DHH_SEX + Diabetes + Fruit | Heart,
+  data = CCHS_CUT,
+  render.continuous = c("Median [IQR]" = "Median [Q1, Q3]"),
+  overall = F,
+  extra.col = list(`P-value` = pvalue),
+  digits = 2
+)
+
+```
+
+❗ Note: This package cannot generate an overall column in the same table as one with p-values because it will otherwise treat the overall column as a third column to compute statistics with.
+
+## 🅾️ tableone package
+
+👍 Pros:
+
+-   has some helpful options embedded such as specifying number of digits, outputting p-values, etc.
+
+-   can export to csv file pretty easily
+
+👎 Cons:
+
+-   formatting is lacking compared to the other 2 packages
+
+Link for examples / introduction using tableone package: https://cran.r-project.org/web/packages/tableone/vignettes/introduction.html
+
+### Create unstratified table using tableone
+
+🚶‍♀️ Create a list of your variables of interest `('DHHGAGE', 'DHH_SEX', 'Diabetes', 'Heart', 'Fruit')`
+
+```{r tableone_prep1.1}
+
+T1Vars <- c('DHHGAGE', 'DHH_SEX', 'Diabetes', 'Heart', 'Fruit') 
+
+```
+
+🚶‍♀️ Create a list of the categorical variables
+
+```{r tableone_prep1.2}
+
+T1CatVars <- c('DHHGAGE', 'DHH_SEX', 'Diabetes', 'Heart')
+
+```
+
+🚶‍♀️ Create the table using the `tableone::CreateTableOne()` function
+
+```{r tableone_table1}
+
+T1 <-
+  CreateTableOne(
+    vars = T1Vars,
+    data = CCHS_CUT,
+    factorVars = T1CatVars,
+    includeNA = TRUE
+  )
+
+```
+
+🚶‍♀️ Output the table into a data frame and use different arguments to format the data
+
+-   print 1 digit for continuous and categorical variables,
+
+-   3 digits for p-values (if they are asked to be printed),
+
+-   no statistical tests to be printed,
+
+-   noSpaces which is an option for adding spaces for alignment purposes, include variable labels
+
+```{r tableone_output1}
+
+T1out <-
+  as.data.frame(
+    print(
+      T1,
+      showAllLevels = TRUE,
+      contDigits = 1,
+      catDigits = 1,
+      pdigits = 3,
+      test = F,
+      noSpaces = T,
+      varLabels = T
+    )
+  )
+
+```
+
+🚶‍♀️ Export table to csv using `write.csv()`
+
+```{r tableone_export1}
+
+write.csv(T1out, file = "C:/Users/tchan/Downloads/tableone_overall_table.csv")
+
+```
+
+### Create stratified table using tableone
+
+🚶‍♀️ Create a list of your variables of interest - this time, don't add stratifying variable into these lists
+
+```{r tableone_prep1.1}
+
+T1Vars <- c('DHHGAGE', 'DHH_SEX', 'Diabetes', 'Fruit') 
+
+```
+
+🚶‍♀️ Create a list of the categorical variables - don't add stratifying variable into this list either!
+
+```{r tableone_prep1.2}
+
+T1CatVars <- c('DHHGAGE', 'DHH_SEX', 'Diabetes')
+
+```
+
+🚶‍♀️ Create the table using the `tableone::CreateTableOne()` function, but this time, add the `strata=""` argument.
+
+```{r tableone_table1}
+
+THeart <-
+  CreateTableOne(
+    vars = T1Vars,
+    strata = "Heart",
+    data = CCHS_CUT,
+    factorVars = T1CatVars,
+    includeNA = TRUE
+  )
+
+```
+
+🚶‍♀️ Make the table into a data frame with the same formatting as before, but this time add `test=T` to indicate we want tests of association done.
+
+```{r tableone_output1}
+
+THeartout <- as.data.frame(
+  print(
+    THeart,
+    showAllLevels = TRUE,
+    contDigits = 2,
+    catDigits = 1,
+    pdigits = 3,
+    test = T,
+    noSpaces = T,
+    varLabels = T
+  )
+)
+
+```
+
+🚶‍♀️ Export table to csv using `write.csv()`
+
+```{r tableone_export1}
+
+write.csv(THeartout, file = "C:/Users/tchan/Downloads/tableone_stratified_by_sex.csv")
+
+```
+
+## 🔣 gtsummary package
+
+👍 Pros:
+
+-   produces aesthetically pleasing table
+
+-   has lots of helpful functions such as producing weighted tables, bolding significant p-values, etc.
+
+👎 Cons:
+
+-   more documentation/reading required to learn/add certain arguments that will allow for you to do the formatting that will best suit your needs
+
+### Create unstratified table using gtsummary
+
+🚶‍♀️ Create a descriptive table of diabetes, fruit, age, and sex
+
+```{r gtsummary_table}
+
+CCHS_CUT %>%
+  tbl_summary(include = c(DHHGAGE, DHH_SEX, Diabetes, Fruit))
+  
+
+
+```
+
+### Create stratified table using gtsummary
+
+🚶‍♀️ Create a descriptive table of diabetes, fruit, age, and sex, stratified by heart disease, with p-values and overall column displayed.
+
+(💡 bonus: try adding the `bold_p()` option to bold significant p-values!)
+
+```{r gtsummary_table}
+
+CCHS_CUT %>%
+  tbl_summary(include = c(DHHGAGE, DHH_SEX, Diabetes, Fruit),
+              by = Heart) %>%
+  add_p() %>%
+  bold_p() %>%
+  add_overall()
+  
+```
+
+### Regression models with gtsummary
+
+🚶‍♀️ Run a logistic regression model looking at the relationship between diabetes and heart disease (outcome), adjusted for age & sex.
+
+```{r model}
+
+model1 <- glm(Heart ~ Diabetes + DHHGAGE + DHH_SEX, CCHS_CUT, family = binomial)
+
+```
+
+🚶‍♀️ Output a formatted table of the regression model results using `tbl_regression()`
+
+```{r model_output}
+
+table_model <- tbl_regression(model1, exponentiate = TRUE)
+
+table_model
+```
