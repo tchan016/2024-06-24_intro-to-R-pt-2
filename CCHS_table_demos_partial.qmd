@@ -448,9 +448,9 @@ CCHS_CUT %>%
 CCHS_CUT %>%
   tbl_summary(include = c(___),
               by = ___) %>%
-  add_p() %>%
-  bold_p() %>%
-  add_overall()
+  ___ %>%
+  ___ %>%
+  ___
   
 ```
 
