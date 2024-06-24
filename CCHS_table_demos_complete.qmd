@@ -213,7 +213,7 @@ table1( ~ DHHGAGE + DHH_SEX + Diabetes + Fruit | Heart, data = CCHS_CUT)
 
 💡 By default, `table1` will output an "Overall" column. If we don't want that overall column, we can add the `overall=FALSE` option.
 
-🚶‍♀️ Make a descriptive table with age, diabetes, and fruit, stratified by sex, but no overall column and now specifying median & IQR for continuous variables (hint: `render.continuous=c("Median [IQR]"="Median [Q1, Q3]")`) and also having these values be rounded to 2 significant digits (via `digits=2`)
+🚶‍♀️ Make a descriptive table with age, diabetes, and fruit, stratified by heart disease, but no overall column and now specifying median & IQR for continuous variables (hint: `render.continuous=c("Median [IQR]"="Median [Q1, Q3]")`) and also having these values be rounded to 2 significant digits (via `digits=2`)
 
 ```{r table1_medians}
 
@@ -251,7 +251,7 @@ pvalue <- function(x, ...) {
 
 ```
 
-🚶‍♀️ Generate the previous sex-stratified table, but now with p-values
+🚶‍♀️ Generate the previous heart disease-stratified table, but now with p-values
 
 ```{r table1_association}
 
@@ -406,7 +406,7 @@ THeartout <- as.data.frame(
 
 ```{r tableone_export1}
 
-write.csv(THeartout, file = "C:/Users/tchan/Downloads/tableone_stratified_by_sex.csv")
+write.csv(THeartout, file = "C:/Users/tchan/Downloads/tableone_stratified_by_heart.csv")
 
 ```
 
